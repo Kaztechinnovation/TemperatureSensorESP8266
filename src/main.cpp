@@ -38,7 +38,7 @@ const int httpsPort = 443;
 const char* host = "script.google.com";
 //----------------------------------------
 WiFiClientSecure clientSecure;
-String GAS_ID = "AKfycbxVNZjWjg5f95EV3Jegevxp-JezpBEtgs3Bnc3LsibRm-esxeQlRHJb60BidOObrRzosQ"; //--> ID скрипта электронной таблицы
+String GAS_ID = "AKfycbx2w7H0Z7BWwpPdfp8Hg6oAOaOwvZcXS1ipky5hFjneEkZ9e0J4lwExHhOHZOJwx1aeCA"; //--> ID скрипта электронной таблицы
 uint16_t count_of_connection=0;
 
 
@@ -56,7 +56,7 @@ void sendData(String tem, String hum) {
  /*---------------------------------*/
   /*Ссылка на APP Script*/
   String url = "/macros/s/" + GAS_ID + "/exec?temperature=" + tem + 
-                "&humidity=" + hum+ "&mac_address=" + macAddress;
+                "&humidity=" + hum + "&mac_address=" + macAddress + "&bat_level=" + batLevel;
   /*-----------------------------*/
 
   clientSecure.print(String("GET ") + url + " HTTP/1.1\r\n" +
@@ -221,7 +221,7 @@ void SPIFFS_init(const char* method){
 
 /*Инициализация WiFi Сети*/
 void wifi_init(){
-  if(count_of_connection<3 || WiFi.status() != WL_CONNECTED){
+  if(count_of_connection<3 && WiFi.status() != WL_CONNECTED){
     WiFi.begin(STA_SSID.c_str(), STA_PASSWORD.c_str()); // c_str() метод преобразовает String to const char*
     Serial.println("Connecting to WIFI");
     WebSerial.println("Connecting to WIFI");
@@ -230,7 +230,7 @@ void wifi_init(){
       Serial.print(".");
       delay(1000); // каждый цикл задерка 1с
       time_to_connection++; // и добавляет 1000мс
-      if(time_to_connection>=10){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
+      if(time_to_connection>=20){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
     }
     Serial.println(" ");
     if(WiFi.status()==WL_CONNECTED) { /*Если подключился к сети*/
@@ -244,10 +244,10 @@ void wifi_init(){
     }
     count_of_connection++;
   }
-  if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
-    count_of_connection=0;
-    ESP.deepSleep(20e6);
-  }
+  // if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
+  //   count_of_connection=0;
+  //   ESP.deepSleep(20e6);
+  // }
   
 }
 
@@ -296,7 +296,6 @@ void AP_server_init(){
     /*-----------------------------------------------*/
     request->redirect("/webserial"); // перенаправление локальный WEB Serial monitor 
   });
-  AsyncElegantOTA.begin(&server);
   server.onNotFound(notFound);
   server.begin();
   /*------------------------------------------------------------------------------------*/
@@ -308,10 +307,10 @@ void start(){
   batLevel=map(ESP.getVcc(),2309,3466,0,100);
   if(!STA_SSID.isEmpty() && WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
   else if (WiFi.status()==WL_CONNECTED ){
-    sendData(tem,hum);     // если подключился и данные сервера не пустой
+    sendData(tem,hum);     
     Serial.print(WiFi.localIP());
     WebSerial.println(Serial.readString());
-    if(!serverName.isEmpty()){
+    if(!serverName.isEmpty()){ // если подключился и данные сервера не пустой
       WiFiClient client;  
       HTTPClient http;
       http.begin(client, serverName);  // Подключенный wifi клиент и api server
@@ -337,22 +336,24 @@ void start(){
       http.end();
       Serial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
       WebSerial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
-      ESP.deepSleep(20e6);
+      //ESP.deepSleep(20e6);
 
     }
   }
+  delay(5000);
 }
 
 void setup() {
   Serial.begin(115200);
   if (!sensor.begin()) while (true);
   WiFi.mode(WIFI_AP_STA);             // Включение точки доступа и WiFi
-  count_of_connection=0;
   AP_server_init();                   // Включение точки доступа и сервера
   WebSerial.begin(&server);           // Подключение web serial monitor к серверу
   SPIFFS_init("r");
   clientSecure.setInsecure();
   Serial.println(macAddress);
+  AsyncElegantOTA.begin(&server);
+  delay(90*1000);
 }
 
 void loop() {
