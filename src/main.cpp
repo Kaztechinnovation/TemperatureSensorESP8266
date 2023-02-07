@@ -10,6 +10,9 @@
 #include <AsyncElegantOTA.h>
 #include <SPI.h>
 #include <Wire.h>
+
+#define SEC 1e6
+#define HOUR 3600*SEC
 ADC_MODE (ADC_VCC);
 AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
 
@@ -234,12 +237,18 @@ void wifi_init(){
       WebSerial.println("WiFi is succesfully connected to " + STA_SSID); /*выводит в Веб сериал монитор*/
       Serial.println("WiFi is succesfully connected to " + STA_SSID);
       SPIFFS_init("w"); /*запись подключенной wifi сети в память*/
+      count_of_connection=0;
     }
     else { /*В ином случае выводит в монитор что не подключился к сети*/
       WebSerial.println("WiFi was not connected to " + STA_SSID);
     }
     count_of_connection++;
   }
+  if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
+    count_of_connection=0;
+    ESP.deepSleep(12*HOUR);
+  }
+  
 }
 
 /*---------Сканирирование WiFi сети-----------*/
@@ -296,10 +305,7 @@ void AP_server_init(){
 void start(){
   String tem=String(sensor.readTemperature());
   String hum=String(sensor.readHumidity());
-  // WebSerial.println("T="+tem);
-  // WebSerial.println("H="+hum);
-  WebSerial.println(ESP.getVcc());
-  delay(500);
+  batLevel=map(ESP.getVcc(),2309,3466,0,100);
   if(!STA_SSID.isEmpty() && WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
   else if (WiFi.status()==WL_CONNECTED ){
     sendData(tem,hum);     // если подключился и данные сервера не пустой
@@ -331,7 +337,7 @@ void start(){
       http.end();
       Serial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
       WebSerial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
-      ESP.deepSleep(20e6);
+      ESP.deepSleep(12*HOUR);
     }
   }
 }
