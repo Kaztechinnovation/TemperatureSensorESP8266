@@ -246,11 +246,7 @@ void wifi_init(){
   }
   if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
     count_of_connection=0;
-<<<<<<< HEAD
     ESP.deepSleep(20e6);
-=======
-    ESP.deepSleep(12*HOUR);
->>>>>>> 64a51cf2a478e5c583ba0d9ed72f0b2a9bfce48f
   }
   
 }
@@ -341,11 +337,8 @@ void start(){
       http.end();
       Serial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
       WebSerial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
-<<<<<<< HEAD
       ESP.deepSleep(20e6);
-=======
-      ESP.deepSleep(12*HOUR);
->>>>>>> 64a51cf2a478e5c583ba0d9ed72f0b2a9bfce48f
+
     }
   }
 }
