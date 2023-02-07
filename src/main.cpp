@@ -147,12 +147,12 @@ div.container {
   border-radius: 5px;
   background-color: #f2f2f2;
   padding: 20px;
+  margin-top: 20px;
 }
 </style>
 <body>
 
 <div class="container">
-<h3>KazTechInnovations</h3>
   <form class="esp-action" action="/get">
     <label for="ssid">SSID</label>
     <select id="ssid" name="ssid">)rawliteral";
