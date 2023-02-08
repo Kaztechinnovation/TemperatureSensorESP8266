@@ -125,7 +125,8 @@ void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
-/*Инициализация флеш памяти
+/*
+  Инициализация флеш памяти
   если method="r" считывает данные с памяти
   если method="w" записавает данные в память .txt формате 
 */
@@ -192,13 +193,14 @@ void wifi_init(){
       count_of_connection++;
     }
   }
-  if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
+
+  else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
     count_of_connection=0;
     ESP.deepSleep(20e6);
   }
   
 }
-
+/*----------------------*/
 /*---------Сканирирование WiFi сети-----------*/
 void scan_wifi(){
   uint8_t n = WiFi.scanNetworks(); // количество WiFi сети
@@ -219,7 +221,7 @@ void scan_wifi(){
 
 /*Инициализация точка доступа и веб сервера*/
 void AP_server_init(){
-  for(auto i=0;i<macAddress.length();i++) {
+  for(uint8_t i=0;i<macAddress.length();i++) {
     if(macAddress.indexOf(':')==i) macAddress.remove(i,1);
   }
   AP_SSID+=macAddress;
@@ -248,6 +250,7 @@ void AP_server_init(){
   server.begin();
   /*------------------------------------------------------------------------------------*/
 }
+/*----------------------------------------*/
 
 /*<----------Oтправкa данных в Google Sheets--------------------->*/
 void sendData(String tem, String hum) {
