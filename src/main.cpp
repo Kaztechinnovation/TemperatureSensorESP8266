@@ -229,7 +229,7 @@ void wifi_init(){
       WebSerial.print(".");
       Serial.print(".");
       delay(1000); // каждый цикл задерка 1с
-      time_to_connection++; // и добавляет 1000мс
+      time_to_connection++; // и добавляет 1с
       if(time_to_connection>=20){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
     }
     Serial.println(" ");
@@ -244,10 +244,10 @@ void wifi_init(){
     }
     count_of_connection++;
   }
-  // if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
-  //   count_of_connection=0;
-  //   ESP.deepSleep(20e6);
-  // }
+  if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
+    count_of_connection=0;
+    ESP.deepSleep(20e6);
+  }
   
 }
 
@@ -307,9 +307,7 @@ void start(){
   batLevel=map(ESP.getVcc(),2309,3466,0,100);
   if(!STA_SSID.isEmpty() && WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
   else if (WiFi.status()==WL_CONNECTED ){
-    sendData(tem,hum);     
-    Serial.print(WiFi.localIP());
-    WebSerial.println(Serial.readString());
+    sendData(tem,hum);
     if(!serverName.isEmpty()){ // если подключился и данные сервера не пустой
       WiFiClient client;  
       HTTPClient http;
@@ -336,7 +334,7 @@ void start(){
       http.end();
       Serial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
       WebSerial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
-      //ESP.deepSleep(20e6);
+      ESP.deepSleep(20e6);
 
     }
   }
@@ -345,18 +343,19 @@ void start(){
 
 void setup() {
   Serial.begin(115200);
-  if (!sensor.begin()) while (true);
+  //if (!sensor.begin()) while (true);
   WiFi.mode(WIFI_AP_STA);             // Включение точки доступа и WiFi
   AP_server_init();                   // Включение точки доступа и сервера
   WebSerial.begin(&server);           // Подключение web serial monitor к серверу
-  SPIFFS_init("r");
+  SPIFFS_init("r");                   // Cчитывает данные с памяти
   clientSecure.setInsecure();
-  Serial.println(macAddress);
-  AsyncElegantOTA.begin(&server);
+  AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
   delay(90*1000);
 }
 
 void loop() {
+  Serial.println("IN LOOP");
+  WebSerial.println("IN LOOP");
   start();
 }
 
