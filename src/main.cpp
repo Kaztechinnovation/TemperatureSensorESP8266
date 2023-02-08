@@ -11,11 +11,8 @@
 #include <SPI.h>
 #include <Wire.h>
 
-#define SEC 1e6
-#define HOUR 3600*SEC
+#define HOUR 3600e6
 ADC_MODE (ADC_VCC);
-AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
-
 // Точка доступа
 String AP_SSID     = "ESP-";      // SSID для точки доступа
 const char* AP_PASSWORD = "123456789";         // Пароль для точки доступа
@@ -23,66 +20,15 @@ const char* AP_PASSWORD = "123456789";         // Пароль для точки
 String STA_SSID;      // SSID для подключение WIFI
 String STA_PASSWORD;  // Пароль для подключение WIFI
 String macAddress=WiFi.macAddress(); // мак адрес для отправки на сервер
-
-uint16_t time_to_connection=0; // счетчик для подключение к WIFI
-File file_ssid,file_password,file_server; // переменные для работы файлов в флеш памяти
-float temperature,humidity; // переменные для датчика(температкра, влажность)
-
-Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для датчика
-
 String serverName; //API of server
-uint8_t n; // количество WiFi сети
 String wifi_networks; // список WiFi сети для вывода в сервер 
 uint8_t batLevel=0;
-const int httpsPort = 443;
-const char* host = "script.google.com";
-//----------------------------------------
-WiFiClientSecure clientSecure;
-String GAS_ID = "AKfycbx2w7H0Z7BWwpPdfp8Hg6oAOaOwvZcXS1ipky5hFjneEkZ9e0J4lwExHhOHZOJwx1aeCA"; //--> ID скрипта электронной таблицы
 uint16_t count_of_connection=0;
 
-
-/*<----------Oтправкa данных в Google Sheets--------------------->*/
-void sendData(String tem, String hum) {
-  Serial.println("==========");
-  Serial.print("connecting to ");
-  Serial.println(host);
-  
-  /*Подключение к хосту Google*/
-  if (!clientSecure.connect(host, httpsPort)) {
-    Serial.println("connection failed");
-    return;
-  }
- /*---------------------------------*/
-  /*Ссылка на APP Script*/
-  String url = "/macros/s/" + GAS_ID + "/exec?temperature=" + tem + 
-                "&humidity=" + hum + "&mac_address=" + macAddress + "&bat_level=" + batLevel;
-  /*-----------------------------*/
-
-  clientSecure.print(String("GET ") + url + " HTTP/1.1\r\n" +
-         "Host: " + host + "\r\n" +
-         "User-Agent: BuildFailureDetectorESP8266\r\n" +
-         "Connection: close\r\n\r\n");
-
-  Serial.println("request sent");
-  //----------------------------------------
-
-  /*Проверка того, успешно были отправлены данные*/
-  while (clientSecure.connected()) {
-    String line = clientSecure.readStringUntil('\n');
-    if (line == "\r") {
-      Serial.println("headers received");
-      break;
-    }
-  }
-  Serial.println("closing connection");
-  Serial.println("==========");
-  Serial.println();
-  /*----------------------------------------*/
-} 
-/*<------------------------------------------------------------------>*/
-
-
+//----------------------------------------
+Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для датчика
+WiFiClientSecure clientSecure;
+AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
 
 /*HTML Страница веб сервера*/
 String index_html = R"rawliteral(                                          
@@ -184,6 +130,7 @@ void notFound(AsyncWebServerRequest *request) {
   если method="w" записавает данные в память .txt формате 
 */
 void SPIFFS_init(const char* method){
+  File file_ssid,file_password,file_server; // переменные для работы файлов в флеш памяти
   if (!SPIFFS.begin()) {
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
@@ -225,6 +172,7 @@ void wifi_init(){
     WiFi.begin(STA_SSID.c_str(), STA_PASSWORD.c_str()); // c_str() метод преобразовает String to const char*
     Serial.println("Connecting to WIFI");
     WebSerial.println("Connecting to WIFI");
+    uint16_t time_to_connection=0; // счетчик для подключение к WIFI
     while(WiFi.status() != WL_CONNECTED){ // Пока не подключется Wifi будет инициализация 
       WebSerial.print(".");
       Serial.print(".");
@@ -241,8 +189,8 @@ void wifi_init(){
     }
     else { /*В ином случае выводит в монитор что не подключился к сети*/
       WebSerial.println("WiFi was not connected to " + STA_SSID);
+      count_of_connection++;
     }
-    count_of_connection++;
   }
   if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
     count_of_connection=0;
@@ -253,7 +201,7 @@ void wifi_init(){
 
 /*---------Сканирирование WiFi сети-----------*/
 void scan_wifi(){
-  n = WiFi.scanNetworks(); // количество WiFi сети
+  uint8_t n = WiFi.scanNetworks(); // количество WiFi сети
   wifi_networks.clear();
   if (n == 0) Serial.println("no networks found"); // выводит в монитор что wifi сети отсутствуют  
   else {
@@ -301,6 +249,49 @@ void AP_server_init(){
   /*------------------------------------------------------------------------------------*/
 }
 
+/*<----------Oтправкa данных в Google Sheets--------------------->*/
+void sendData(String tem, String hum) {
+  const int httpsPort = 443;
+  const char* host = "script.google.com";
+  String GAS_ID = "AKfycbx2w7H0Z7BWwpPdfp8Hg6oAOaOwvZcXS1ipky5hFjneEkZ9e0J4lwExHhOHZOJwx1aeCA"; //--> ID скрипта электронной таблицы
+  Serial.println("==========");
+  Serial.print("connecting to ");
+  Serial.println(host);
+  
+  /*Подключение к хосту Google*/
+  if (!clientSecure.connect(host, httpsPort)) {
+    Serial.println("connection failed");
+    return;
+  }
+ /*---------------------------------*/
+  /*Ссылка на APP Script*/
+  String url = "/macros/s/" + GAS_ID + "/exec?temperature=" + tem + 
+                "&humidity=" + hum + "&mac_address=" + macAddress + "&bat_level=" + batLevel;
+  /*-----------------------------*/
+
+  clientSecure.print(String("GET ") + url + " HTTP/1.1\r\n" +
+         "Host: " + host + "\r\n" +
+         "User-Agent: BuildFailureDetectorESP8266\r\n" +
+         "Connection: close\r\n\r\n");
+
+  Serial.println("request sent");
+  //----------------------------------------
+
+  /*Проверка того, успешно были отправлены данные*/
+  while (clientSecure.connected()) {
+    String line = clientSecure.readStringUntil('\n');
+    if (line == "\r") {
+      Serial.println("headers received");
+      break;
+    }
+  }
+  Serial.println("closing connection");
+  Serial.println("==========");
+  Serial.println();
+  /*----------------------------------------*/
+} 
+/*<------------------------------------------------------------------>*/
+
 void start(){
   String tem=String(sensor.readTemperature());
   String hum=String(sensor.readHumidity());
@@ -330,12 +321,11 @@ void start(){
       }
       /*----------------------------------------------------*/
       Serial.println(httpResponseCode);
-      WebSerial.println(httpResponseCode);
+      WebSerial.println(String(httpResponseCode));
       http.end();
       Serial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
       WebSerial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
       ESP.deepSleep(20e6);
-
     }
   }
   delay(5000);
@@ -343,12 +333,12 @@ void start(){
 
 void setup() {
   Serial.begin(115200);
-  //if (!sensor.begin()) while (true);
+  if (!sensor.begin()) while (true);
   WiFi.mode(WIFI_AP_STA);             // Включение точки доступа и WiFi
   AP_server_init();                   // Включение точки доступа и сервера
-  WebSerial.begin(&server);           // Подключение web serial monitor к серверу
   SPIFFS_init("r");                   // Cчитывает данные с памяти
-  clientSecure.setInsecure();
+  clientSecure.setInsecure();         //  
+  WebSerial.begin(&server);           // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
   delay(90*1000);
 }
