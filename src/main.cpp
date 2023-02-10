@@ -12,20 +12,22 @@
 #include <Wire.h>
 
 #define HOUR 3600e6
-ADC_MODE (ADC_VCC);
-// Точка доступа
-String AP_SSID     = "ESP-";      // SSID для точки доступа
+ADC_MODE (ADC_VCC); // считавает напряжение на питания в ацп
+
+/*-----------Точка доступа------------------*/ 
+String AP_SSID     = "ESP-";                    // SSID для точки доступа
 const char* AP_PASSWORD = "123456789";         // Пароль для точки доступа
+/*------------------------------------------*/
 
-String STA_SSID;      // SSID для подключение WIFI
-String STA_PASSWORD;  // Пароль для подключение WIFI
-String macAddress=WiFi.macAddress(); // мак адрес для отправки на сервер
-String serverName; //API of server
-String wifi_networks; // список WiFi сети для вывода в сервер 
-uint8_t batLevel=0;
-uint16_t count_of_connection=0;
+String macAddress=WiFi.macAddress();      // мак адрес для отправки на сервер
+String STA_SSID;                         // SSID для подключение WIFI
+String STA_PASSWORD;                    // Пароль для подключение WIFI
+String serverName;                     // API of server
+String wifi_networks;                 // список WiFi сети для вывода в сервер 
 
-//----------------------------------------
+uint8_t batLevel=0;                   // уровень батареи в %
+uint16_t count_of_connection=0;      // количество неудачных подключений вай-фай     
+
 Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для датчика
 WiFiClientSecure clientSecure;
 AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
@@ -171,7 +173,6 @@ void SPIFFS_init(const char* method){
 void wifi_init(){
   if(count_of_connection<3 && WiFi.status() != WL_CONNECTED){
     WiFi.begin(STA_SSID.c_str(), STA_PASSWORD.c_str()); // c_str() метод преобразовает String to const char*
-    Serial.println("Connecting to WIFI");
     WebSerial.println("Connecting to WIFI");
     uint16_t time_to_connection=0; // счетчик для подключение к WIFI
     while(WiFi.status() != WL_CONNECTED){ // Пока не подключется Wifi будет инициализация 
@@ -179,12 +180,11 @@ void wifi_init(){
       Serial.print(".");
       delay(1000); // каждый цикл задерка 1с
       time_to_connection++; // и добавляет 1с
-      if(time_to_connection>=20){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
+      if(time_to_connection>=15){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
     }
     Serial.println(" ");
     if(WiFi.status()==WL_CONNECTED) { /*Если подключился к сети*/
       WebSerial.println("WiFi is succesfully connected to " + STA_SSID); /*выводит в Веб сериал монитор*/
-      Serial.println("WiFi is succesfully connected to " + STA_SSID);
       SPIFFS_init("w"); /*запись подключенной wifi сети в память*/
       count_of_connection=0;
     }
@@ -252,11 +252,11 @@ void AP_server_init(){
 }
 /*----------------------------------------*/
 
-/*<----------Oтправкa данных в Google Sheets--------------------->*/
-void sendData(String tem, String hum) {
+/*----------Oтправкa данных в Google Sheets---------------------*/
+void sendDataToGoogleSheets(String tem, String hum) {
   const int httpsPort = 443;
   const char* host = "script.google.com";
-  String GAS_ID = "AKfycbx2w7H0Z7BWwpPdfp8Hg6oAOaOwvZcXS1ipky5hFjneEkZ9e0J4lwExHhOHZOJwx1aeCA"; //--> ID скрипта электронной таблицы
+  String GAS_ID = "AKfycbwz3xRklsgg8l_LB313YyaRlBlycnjCRGala5ZfCEz9bGhm0RxuDfWPdQX7JzA2CrXh"; //--> ID скрипта электронной таблицы
   Serial.println("==========");
   Serial.print("connecting to ");
   Serial.println(host);
@@ -278,6 +278,7 @@ void sendData(String tem, String hum) {
          "Connection: close\r\n\r\n");
 
   Serial.println("request sent");
+  WebSerial.println("request sent");
   //----------------------------------------
 
   /*Проверка того, успешно были отправлены данные*/
@@ -296,12 +297,12 @@ void sendData(String tem, String hum) {
 /*<------------------------------------------------------------------>*/
 
 void start(){
-  String tem=String(sensor.readTemperature());
-  String hum=String(sensor.readHumidity());
   batLevel=map(ESP.getVcc(),2309,3466,0,100);
   if(!STA_SSID.isEmpty() && WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
   else if (WiFi.status()==WL_CONNECTED ){
-    sendData(tem,hum);
+    String tem=String(sensor.readTemperature());
+    String hum=String(sensor.readHumidity());
+    sendDataToGoogleSheets(tem,hum);
     if(!serverName.isEmpty()){ // если подключился и данные сервера не пустой
       WiFiClient client;  
       HTTPClient http;
@@ -323,15 +324,13 @@ void start(){
         WebSerial.print("Error code: ");
       }
       /*----------------------------------------------------*/
-      Serial.println(httpResponseCode);
-      WebSerial.println(String(httpResponseCode));
+      WebSerial.println(httpResponseCode);
+      WebSerial.println("I'm going into deep sleep mode");
+      delay(1000);
       http.end();
-      Serial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
-      WebSerial.println("I'm awake, but I'm going into deep sleep mode for 30 seconds");
       ESP.deepSleep(20e6);
     }
   }
-  delay(5000);
 }
 
 void setup() {
@@ -347,8 +346,7 @@ void setup() {
 }
 
 void loop() {
-  Serial.println("IN LOOP");
-  WebSerial.println("IN LOOP");
+  WebSerial.println("Device is started to send data");
   start();
 }
 
