@@ -270,7 +270,7 @@ void sendDataToGoogleSheets(String tem, String hum) {
  /*---------------------------------*/
   /*Ссылка на APP Script*/
   String url = "/macros/s/" + GAS_ID + "/exec?temperature=" + tem + 
-                "&humidity=" + hum + "&mac_address=" + macAddress + "&bat_level=" + batLevel;
+                "&humidity=" + hum + "&mac_address=" + macAddress + "&bat_level=" + String(batLevel);
   /*-----------------------------*/
 
   clientSecure.print(String("GET ") + url + " HTTP/1.1\r\n" +
