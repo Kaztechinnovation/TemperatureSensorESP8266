@@ -5,7 +5,7 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <WebSerial.h>
-#include "FS.h"
+//#include "FS.h"
 #include "Adafruit_Si7021.h"
 #include <AsyncElegantOTA.h>
 #include <SPI.h>
@@ -129,7 +129,7 @@ void notFound(AsyncWebServerRequest *request) {
 
 /*
   Инициализация флеш памяти
-  если method="r" считывает данные с памяти
+  если method="r" считывает данные с памяти 
   если method="w" записавает данные в память .txt формате 
 */
 void SPIFFS_init(const char* method){
@@ -297,11 +297,12 @@ void sendDataToGoogleSheets(String tem, String hum) {
 /*<------------------------------------------------------------------>*/
 
 void start(){
-  batLevel=map(ESP.getVcc(),2309,3466,0,100);
-  if(!STA_SSID.isEmpty() && WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
-  else if (WiFi.status()==WL_CONNECTED ){
+  
+  if(WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
+  else{
     String tem=String(sensor.readTemperature());
     String hum=String(sensor.readHumidity());
+    batLevel=map(ESP.getVcc(),2309,3466,0,100);
     sendDataToGoogleSheets(tem,hum);
     if(!serverName.isEmpty()){ // если подключился и данные сервера не пустой
       WiFiClient client;  
@@ -328,17 +329,17 @@ void start(){
       WebSerial.println("I'm going into deep sleep mode");
       delay(1000);
       http.end();
-      ESP.deepSleep(20e6);
     }
+    ESP.deepSleep(20e6);
   }
 }
 
 void setup() {
   Serial.begin(115200);
-  if (!sensor.begin()) while (true);
   WiFi.mode(WIFI_AP_STA);             // Включение точки доступа и WiFi
   AP_server_init();                   // Включение точки доступа и сервера
   SPIFFS_init("r");                   // Cчитывает данные с памяти
+  //if (!sensor.begin()) while (true);
   clientSecure.setInsecure();         //  
   WebSerial.begin(&server);           // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
