@@ -12,6 +12,7 @@
 #include <Wire.h>
 
 #define HOUR 3600e6
+#define TIME_TO_SLEEP 12*HOUR
 ADC_MODE (ADC_VCC); // считавает напряжение на питания в ацп
 
 /*-----------Точка доступа------------------*/ 
@@ -196,7 +197,7 @@ void wifi_init(){
 
   else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED){
     count_of_connection=0;
-    ESP.deepSleep(12*HOUR);
+    ESP.deepSleep(TIME_TO_SLEEP);
   }
   
 }
@@ -330,7 +331,7 @@ void start(){
       delay(1000);
       http.end();
     }
-    ESP.deepSleep(12*HOUR);
+    ESP.deepSleep(TIME_TO_SLEEP);
   }
 }
 
@@ -339,7 +340,7 @@ void setup() {
   WiFi.mode(WIFI_AP_STA);             // Включение точки доступа и WiFi
   AP_server_init();                   // Включение точки доступа и сервера
   SPIFFS_init("r");                   // Cчитывает данные с памяти
-  //if (!sensor.begin()) while (true);
+  if (!sensor.begin()) while (true);
   clientSecure.setInsecure();         //  
   WebSerial.begin(&server);           // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
