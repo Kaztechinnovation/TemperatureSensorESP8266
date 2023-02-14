@@ -5,14 +5,13 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <WebSerial.h>
-//#include "FS.h"
+#include "FS.h"
 #include "Adafruit_Si7021.h"
 #include <AsyncElegantOTA.h>
 #include <SPI.h>
 #include <Wire.h>
 
-#define HOUR 3600e6
-#define TIME_TO_SLEEP 12*HOUR
+#define TIME_TO_SLEEP 12*3600e6
 ADC_MODE (ADC_VCC); // считавает напряжение на питания в ацп
 
 /*-----------Точка доступа------------------*/ 
