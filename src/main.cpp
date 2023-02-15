@@ -358,10 +358,10 @@ void _init_(){
   WebSerial.begin(&server);           // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
   if(rtcMem.count==0) delay(90*1000);
+  WebSerial.println("Device is started to send data");
 }
 
 void start(){
-  WebSerial.println(String(ESP.getVcc()));
   if(WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
   else{
     String tem=String(sensor.readTemperature());
@@ -380,7 +380,7 @@ void setup() {
 }
 
 void loop() {
-  WebSerial.println("Device is started to send data");
+ 
   start();
 }
 
