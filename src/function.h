@@ -20,15 +20,15 @@ extern "C" {
 #define TIME_TO_SLEEP 4*3600e6
 
 
-typedef struct rtcStore{
+typedef struct {
   int count;
-};
+}rtcStore;
 
-typedef struct Sta{
+typedef struct {
   String ssid;
   String password;
   String severname;
-};
+}Sta;
 
 /*HTML Страница веб сервера*/
 String index_html = R"rawliteral(                                          

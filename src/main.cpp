@@ -255,7 +255,7 @@ void _init_(){
   WiFi.mode(WIFI_AP_STA);              // Включение точки доступа и WiFi
   AP_server_init();                   // Включение точки доступа и сервера
   LittleFS_init("r");                // Cчитывает данные с памяти
-  if (!sensor.begin()) while (true);
+  // if (!sensor.begin()) while (true);
   clientSecure.setInsecure(); 
   WebSerial.begin(&server);            // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
