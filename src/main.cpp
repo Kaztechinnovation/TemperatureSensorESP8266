@@ -9,11 +9,8 @@ const char* AP_PASSWORD = "123456789";         // Пароль для точки
 /*------------------------------------------*/
 
 String macAddress=WiFi.macAddress();      // мак адрес для отправки на сервер
-String STA_SSID;                         // SSID для подключение WIFI
-String STA_PASSWORD;                    // Пароль для подключение WIFI
-String serverName;                     // API of server
 String wifi_networks;                 // список WiFi сети для вывода в сервер 
-
+Sta sta;
 rtcStore rtcMem;
 uint8_t batLevel=0;                   // уровень батареи в %
 uint16_t count_of_connection=0;      // количество неудачных подключений вай-фай     
@@ -22,101 +19,9 @@ Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для 
 WiFiClientSecure clientSecure;
 AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
 
-/*HTML Страница веб сервера*/
-String index_html = R"rawliteral(                                          
-<!DOCTYPE html>
-<html>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body {
-  font-family: Arial;
-}
-
-input[type=text], select {
-  width: 100%;
-  padding: 12px 20px;
-  margin: 8px 0;
-  display: block;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-
-input[type=password], select {
-  width: 100%;
-  padding: 12px 20px;
-  margin: 8px 0;
-  display: block;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-}
-
-.btn {
-  border: none; /* Remove borders */
-  color: white; /* Add a text color */
-  padding: 14px 28px; /* Add some padding */
-  cursor: pointer; /* Add a pointer cursor on mouse-over */
-}
-
-input[type=submit] {
-  width: 100%;
-  background-color: #04AA6D;
-  color: white;
-  padding: 14px 20px;
-  margin: 8px 0;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-.info {background-color: #2196F3;}
-
-input[type=submit]:hover {
-  background-color: #45a049;
-}
-
-div.container {
-  width:100%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-.esp-action{
-  border-radius: 5px;
-  background-color: #f2f2f2;
-  padding: 20px;
-  margin-top: 20px;
-}
-</style>
-<body>
-
-<div class="container">
-  <form class="esp-action" action="/get">
-    <label for="ssid">SSID</label>
-    <select id="ssid" name="ssid">)rawliteral";
-
-/*------------------------------------------------------------------------------------------*/
-String index_html_footer=R"rawliteral(</select>
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password">
-            <label for="server">Server</label>
-            <input type="text" id="server" name="server">
-            <label for="mac-address">MAC Address</label>
-            <input type="text" disabled="disabled" value=")rawliteral" + WiFi.macAddress() +"\">" 
-            R"rawliteral(
-            <input type="submit" value="Submit">
-          </form>
-          
-        </div>
-      </body>
-    </html>)rawliteral";
-/*---------------------------------------------------------------------------------------*/
-
-
 void readFromRTCMemory() {
   system_rtc_mem_read(RTCMEMORYSTART, &rtcMem, sizeof(rtcMem));
-
-  Serial.print("count = ");
+  Serial.print("\nread count = ");
   Serial.println(rtcMem.count);
   yield();
 }
@@ -130,26 +35,24 @@ void writeToRTCMemory() {
 
   system_rtc_mem_write(RTCMEMORYSTART, &rtcMem, 4);
 
-  Serial.print("count = ");
+  Serial.print("write count = ");
   Serial.println(rtcMem.count);
   yield();
 }
-
-
-
 
 // Ошибка 404
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
 
-void sleep(){
-    if (rtcMem.count == 0) {
+void sleep(double time){
+  if (rtcMem.count == 0) {
     Serial.println("Will wake up with radio!");
-    ESP.deepSleep(TIME_TO_SLEEP, WAKE_RFCAL);
-  } else {
+    ESP.deepSleep(time, WAKE_RFCAL);
+  } 
+  else {
     Serial.println("Will wake up without radio!");
-    ESP.deepSleep(TIME_TO_SLEEP, WAKE_RF_DISABLED);
+    ESP.deepSleep(time, WAKE_RF_DISABLED);
   }
 }
 
@@ -173,9 +76,9 @@ void LittleFS_init(const char* method){
         return;
     }
     if(file_ssid.available() && file_password.available() && file_server.available()) {
-      STA_SSID=file_ssid.readString();
-      STA_PASSWORD=file_password.readString();
-      serverName=file_server.readString();
+      sta.ssid=file_ssid.readString();
+      sta.password=file_password.readString();
+      sta.severname=file_server.readString();
     }
   }
   else if(method == "w"){
@@ -183,7 +86,7 @@ void LittleFS_init(const char* method){
       Serial.println("There was an error opening the file for writing");
       return;
     }
-    if (file_ssid.print(STA_SSID) && file_password.print(STA_PASSWORD) && file_server.print(serverName))
+    if (file_ssid.print(sta.ssid) && file_password.print(sta.password) && file_server.print(sta.severname))
         Serial.println("File was written");
     else 
         Serial.println("File write failed");
@@ -198,8 +101,9 @@ void LittleFS_init(const char* method){
 /*Инициализация WiFi Сети*/
 void wifi_init(){
   if(count_of_connection<3 && WiFi.status() != WL_CONNECTED){
-    WiFi.begin(STA_SSID.c_str(), STA_PASSWORD.c_str()); // c_str() метод преобразовает String to const char*
+    WiFi.begin(sta.ssid.c_str(), sta.password.c_str()); // c_str() метод преобразовает String to const char*
     WebSerial.println("Connecting to WIFI");
+    Serial.println("Connecting to WIFI");
     uint16_t time_to_connection=0; // счетчик для подключение к WIFI
     while(WiFi.status() != WL_CONNECTED){ // Пока не подключется Wifi будет инициализация 
       WebSerial.print(".");
@@ -210,16 +114,16 @@ void wifi_init(){
     }
     Serial.println(" ");
     if(WiFi.status()==WL_CONNECTED) { /*Если подключился к сети*/
-      WebSerial.println("WiFi is succesfully connected to " + STA_SSID); /*выводит в Веб сериал монитор*/
+      WebSerial.println("WiFi is succesfully connected to " + sta.ssid); /*выводит в Веб сериал монитор*/
       LittleFS_init("w"); /*запись подключенной wifi сети в память*/
     }
     else { /*В ином случае выводит в монитор что не подключился к сети*/
-      WebSerial.println("WiFi was not connected to " + STA_SSID);
+      WebSerial.println("WiFi was not connected to " + sta.ssid);
       count_of_connection++;
     }
   }
 
-  else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED) sleep();
+  else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED) sleep(TIME_TO_SLEEP);
   
   
 }
@@ -263,9 +167,9 @@ void AP_server_init(){
   server.on("/get", HTTP_GET, [] (AsyncWebServerRequest *request) { 
     if(WiFi.status()==WL_CONNECTED) WiFi.disconnect();
     /*получение данные с сервера*/
-    STA_SSID=request->getParam("ssid")->value();          
-    STA_PASSWORD=request->getParam("password")->value();
-    serverName="http://"+request->getParam("server")->value()+"/post-data.php";
+    sta.ssid=request->getParam("ssid")->value();          
+    sta.password=request->getParam("password")->value();
+    sta.severname="http://"+request->getParam("server")->value()+"/post-data.php";
     /*-----------------------------------------------*/
     request->redirect("/webserial"); // перенаправление локальный WEB Serial monitor 
   });
@@ -320,10 +224,10 @@ void sendDataToGoogleSheets(String tem, String hum) {
 /*<------------------------------------------------------------------>*/
 
 void SendToServer(String tem, String hum){
-  if(!serverName.isEmpty()){ // если подключился и данные сервера не пустой
+  if(!sta.severname.isEmpty()){ // если подключился и данные сервера не пустой
     WiFiClient client;  
     HTTPClient http;
-    http.begin(client, serverName);  // Подключенный wifi клиент и api server
+    http.begin(client, sta.severname);  // Подключенный wifi клиент и api server
     
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     String httpRequestData = "&temperature=" + tem + "&humidity=" + hum + "&mac_address=" + macAddress + "&batLevel=" + String(batLevel);
@@ -350,12 +254,12 @@ void SendToServer(String tem, String hum){
 void _init_(){
   readFromRTCMemory();
   writeToRTCMemory();
-  WiFi.mode(WIFI_AP_STA);             // Включение точки доступа и WiFi
+  WiFi.mode(WIFI_AP_STA);              // Включение точки доступа и WiFi
   AP_server_init();                   // Включение точки доступа и сервера
-  LittleFS_init("r");                   // Cчитывает данные с памяти
-  //if (!sensor.begin()) while (true);
-  clientSecure.setInsecure();         //  
-  WebSerial.begin(&server);           // Подключение web serial monitor к серверу
+  LittleFS_init("r");                // Cчитывает данные с памяти
+  if (!sensor.begin()) while (true);
+  clientSecure.setInsecure(); 
+  WebSerial.begin(&server);            // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
   if(rtcMem.count==0) delay(90*1000);
   WebSerial.println("Device is started to send data");
@@ -369,7 +273,7 @@ void start(){
     batLevel=map(ESP.getVcc(),2309,3336,0,100);
     sendDataToGoogleSheets(tem,hum);
     SendToServer(tem,hum);
-    sleep();
+    sleep(TIME_TO_SLEEP);
   }
 }
 
@@ -380,7 +284,6 @@ void setup() {
 }
 
 void loop() {
- 
   start();
 }
 
