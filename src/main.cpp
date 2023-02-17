@@ -10,14 +10,12 @@ const char* AP_PASSWORD = "123456789";         // Пароль для точки
 
 String macAddress=WiFi.macAddress();      // мак адрес для отправки на сервер
 String wifi_networks;                 // список WiFi сети для вывода в сервер 
+uint16_t count_of_connection=0;      // количество неудачных подключений вай-фай     
 Sta sta;
 rtcStore rtcMem;
-uint8_t batLevel=0;                   // уровень батареи в %
-uint16_t count_of_connection=0;      // количество неудачных подключений вай-фай     
-
 Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для датчика
-WiFiClientSecure clientSecure;
 AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
+WiFiClientSecure clientSecure;
 
 void readFromRTCMemory() {
   system_rtc_mem_read(RTCMEMORYSTART, &rtcMem, sizeof(rtcMem));
@@ -180,7 +178,7 @@ void AP_server_init(){
 /*----------------------------------------*/
 
 /*----------Oтправкa данных в Google Sheets---------------------*/
-void sendDataToGoogleSheets(String tem, String hum) {
+void sendDataToGoogleSheets(String tem, String hum, uint8_t batLevel) {
   const int httpsPort = 443;
   const char* host = "script.google.com";
   String GAS_ID = "AKfycbwz3xRklsgg8l_LB313YyaRlBlycnjCRGala5ZfCEz9bGhm0RxuDfWPdQX7JzA2CrXh"; //--> ID скрипта электронной таблицы
@@ -223,7 +221,7 @@ void sendDataToGoogleSheets(String tem, String hum) {
 } 
 /*<------------------------------------------------------------------>*/
 
-void SendToServer(String tem, String hum){
+void SendToServer(String tem, String hum, uint8_t batLevel){
   if(!sta.severname.isEmpty()){ // если подключился и данные сервера не пустой
     WiFiClient client;  
     HTTPClient http;
@@ -270,9 +268,9 @@ void start(){
   else{
     String tem=String(sensor.readTemperature());
     String hum=String(sensor.readHumidity());
-    batLevel=map(ESP.getVcc(),2309,3336,0,100);
-    sendDataToGoogleSheets(tem,hum);
-    SendToServer(tem,hum);
+    uint8_t batLevel=map(ESP.getVcc(),2309,3336,0,100);
+    sendDataToGoogleSheets(tem,hum,batLevel);
+    SendToServer(tem,hum,batLevel);
     sleep(TIME_TO_SLEEP);
   }
 }

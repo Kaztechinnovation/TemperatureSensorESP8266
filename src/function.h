@@ -28,7 +28,6 @@ typedef struct Sta{
   String ssid;
   String password;
   String severname;
-
 };
 
 /*HTML Страница веб сервера*/
