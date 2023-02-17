@@ -221,7 +221,7 @@ void sendDataToGoogleSheets(String tem, String hum, uint8_t batLevel) {
 } 
 /*<------------------------------------------------------------------>*/
 
-void SendToServer(String tem, String hum, uint8_t batLevel){
+void sendDataToServer(String tem, String hum, uint8_t batLevel){
   if(!sta.severname.isEmpty()){ // если подключился и данные сервера не пустой
     WiFiClient client;  
     HTTPClient http;
@@ -270,7 +270,7 @@ void start(){
     String hum=String(sensor.readHumidity());
     uint8_t batLevel=map(ESP.getVcc(),2309,3336,0,100);
     sendDataToGoogleSheets(tem,hum,batLevel);
-    SendToServer(tem,hum,batLevel);
+    sendDataToServer(tem,hum,batLevel);
     sleep(TIME_TO_SLEEP);
   }
 }
