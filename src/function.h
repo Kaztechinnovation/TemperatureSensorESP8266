@@ -16,9 +16,10 @@ extern "C" {
 }
 
 #define RTCMEMORYSTART 65
-#define MAXHOUR 6e6 
-#define TIME_TO_SLEEP 4*3600e6
-
+#define MAXHOUR 1e5 
+#define TIME_TO_SLEEP 10e6
+#define DELAY delay(90*1000)
+String GAS_ID = "AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g";
 
 typedef struct {
   int count;
@@ -28,6 +29,7 @@ typedef struct {
   String ssid;
   String password;
   String severname;
+  int sendCount;
 }Sta;
 
 /*HTML Страница веб сервера*/

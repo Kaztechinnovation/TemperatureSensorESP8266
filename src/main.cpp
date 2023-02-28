@@ -16,6 +16,7 @@ rtcStore rtcMem;
 Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для датчика
 AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
 WiFiClientSecure clientSecure;
+File file_ssid,file_password,file_server,file_send; // переменные для работы файлов в флеш памяти
 
 void readFromRTCMemory() {
   system_rtc_mem_read(RTCMEMORYSTART, &rtcMem, sizeof(rtcMem));
@@ -25,6 +26,7 @@ void readFromRTCMemory() {
 }
 
 void writeToRTCMemory() {
+  if(rtcMem.count<0) rtcMem.count = rtcMem.count*(-1); 
   if (rtcMem.count <= MAXHOUR) {
     rtcMem.count++;
   } else {
@@ -42,59 +44,67 @@ void writeToRTCMemory() {
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
-
-void sleep(double time){
-  if (rtcMem.count == 0) {
-    Serial.println("Will wake up with radio!");
-    ESP.deepSleep(time, WAKE_RFCAL);
-  } 
-  else {
-    Serial.println("Will wake up without radio!");
-    ESP.deepSleep(time, WAKE_RF_DISABLED);
-  }
-}
-
 /*
   Инициализация флеш памяти
-  если method="r" считывает данные с памяти 
-  если method="w" записавает данные в память .txt формате 
+  считывает данные с памяти  
 */
-void LittleFS_init(const char* method){
-  File file_ssid,file_password,file_server; // переменные для работы файлов в флеш памяти
+
+void fs_read(){
   if (!LittleFS.begin()) {
     Serial.println("An Error has occurred while mounting LittleFS");
     return;
   }
-  file_ssid = LittleFS.open("/ssid.txt",method);
-  file_password = LittleFS.open("/password.txt",method);
-  file_server = LittleFS.open("/server.txt",method);
-  if(method == "r"){
-    if(!file_ssid && !file_password && !file_server){
-        Serial.println("Failed to open file for reading");
-        return;
-    }
-    if(file_ssid.available() && file_password.available() && file_server.available()) {
-      sta.ssid=file_ssid.readString();
-      sta.password=file_password.readString();
-      sta.severname=file_server.readString();
-    }
+  file_ssid = LittleFS.open("/ssid.txt","r");
+  file_password = LittleFS.open("/password.txt","r");
+  file_server = LittleFS.open("/server.txt","r");
+  file_send = LittleFS.open("/send.txt","r");
+  if(!file_ssid && !file_password && !file_server){
+    Serial.println("Failed to open file for reading");
+    return;
   }
-  else if(method == "w"){
-    if (!file_ssid && !file_password && !file_server) {
-      Serial.println("There was an error opening the file for writing");
-      return;
-    }
-    if (file_ssid.print(sta.ssid) && file_password.print(sta.password) && file_server.print(sta.severname))
-        Serial.println("File was written");
-    else 
-        Serial.println("File write failed");
+  if(file_ssid.available() && file_password.available() && file_server.available()) {
+    sta.ssid=file_ssid.readString();
+    sta.password=file_password.readString();
+    sta.severname=file_server.readString();
+    
   }
+  if(!file_send){
+     Serial.println("Failed to open file for reading");
+    return;
+  }
+  if(file_send.available()) sta.sendCount=file_send.readString().toInt();
   file_ssid.close();
   file_password.close();
   file_server.close();
+  file_send.close();
+  LittleFS.end();
+}
+/*записавает данные в память .txt формате*/
+void fs_write(File file,String path,String data){
+  if (!LittleFS.begin()) {
+    Serial.println("An Error has occurred while mounting LittleFS");
+    return;
+  }
+  file = LittleFS.open(path,"w");
+  if (!file) {
+    Serial.println("There was an error opening the file for writing");
+    return;
+  }
+  if(file.print(data)) Serial.println("File was written");
+  else Serial.println("File write failed");
+  file.close();
   LittleFS.end();
 }
 /*--------------------------*/
+
+void sleep(){
+  sta.sendCount++;
+  fs_write(file_send,"/send.txt",String(sta.sendCount));
+  Serial.println("SLEEP!");
+  ESP.deepSleep(TIME_TO_SLEEP, WAKE_RF_DISABLED);
+}
+
+
 
 /*Инициализация WiFi Сети*/
 void wifi_init(){
@@ -108,12 +118,15 @@ void wifi_init(){
       Serial.print(".");
       delay(1000); // каждый цикл задерка 1с
       time_to_connection++; // и добавляет 1с
-      if(time_to_connection>=15){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
+      yield();
+      if(time_to_connection>=10){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
     }
     Serial.println(" ");
     if(WiFi.status()==WL_CONNECTED) { /*Если подключился к сети*/
       WebSerial.println("WiFi is succesfully connected to " + sta.ssid); /*выводит в Веб сериал монитор*/
-      LittleFS_init("w"); /*запись подключенной wifi сети в память*/
+      fs_write(file_password,"/password.txt",sta.password); /*запись подключенной wifi сети в память*/
+      fs_write(file_ssid,"/ssid.txt",sta.ssid);
+      fs_write(file_server,"/server.txt",sta.severname);
     }
     else { /*В ином случае выводит в монитор что не подключился к сети*/
       WebSerial.println("WiFi was not connected to " + sta.ssid);
@@ -121,7 +134,10 @@ void wifi_init(){
     }
   }
 
-  else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED) sleep(TIME_TO_SLEEP);
+  else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED) {
+    DELAY;
+    sleep();
+  }
   
   
 }
@@ -167,7 +183,7 @@ void AP_server_init(){
     /*получение данные с сервера*/
     sta.ssid=request->getParam("ssid")->value();          
     sta.password=request->getParam("password")->value();
-    sta.severname="http://"+request->getParam("server")->value()+"/post-data.php";
+    sta.severname="http://"+request->getParam("server")->value()+"/config.php";
     /*-----------------------------------------------*/
     request->redirect("/webserial"); // перенаправление локальный WEB Serial monitor 
   });
@@ -181,7 +197,6 @@ void AP_server_init(){
 void sendDataToGoogleSheets(String tem, String hum, uint8_t batLevel) {
   const int httpsPort = 443;
   const char* host = "script.google.com";
-  String GAS_ID = "AKfycbwz3xRklsgg8l_LB313YyaRlBlycnjCRGala5ZfCEz9bGhm0RxuDfWPdQX7JzA2CrXh"; //--> ID скрипта электронной таблицы
   Serial.println("==========");
   Serial.print("connecting to ");
   Serial.println(host);
@@ -194,7 +209,7 @@ void sendDataToGoogleSheets(String tem, String hum, uint8_t batLevel) {
  /*---------------------------------*/
   /*Ссылка на APP Script*/
   String url = "/macros/s/" + GAS_ID + "/exec?temperature=" + tem + 
-                "&humidity=" + hum + "&mac_address=" + macAddress + "&bat_level=" + String(batLevel);
+                "&humidity=" + hum + "&mac_address=" + WiFi.macAddress() + "&bat_level=" + String(batLevel);
   /*-----------------------------*/
 
   clientSecure.print(String("GET ") + url + " HTTP/1.1\r\n" +
@@ -221,12 +236,33 @@ void sendDataToGoogleSheets(String tem, String hum, uint8_t batLevel) {
 } 
 /*<------------------------------------------------------------------>*/
 
+
+void BootMode(){
+  WiFiClient client;  
+  HTTPClient http;
+  String payload;
+
+  http.begin(client, sta.severname + "?mac_address=" + macAddress); 
+  int httpResponseCode = http.GET();
+  if (httpResponseCode>0) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    payload = http.getString();
+    Serial.println(payload);
+  }
+  else {
+    Serial.print("Error code: ");
+    WebSerial.print("Error code: ");
+  }
+  Serial.println(httpResponseCode);
+  WebSerial.println(httpResponseCode);
+  if(payload=="1")DELAY;
+}
+
 void sendDataToServer(String tem, String hum, uint8_t batLevel){
-  if(!sta.severname.isEmpty()){ // если подключился и данные сервера не пустой
     WiFiClient client;  
     HTTPClient http;
-    http.begin(client, sta.severname);  // Подключенный wifi клиент и api server
-    
+    http.begin(client, sta.severname);
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
     String httpRequestData = "&temperature=" + tem + "&humidity=" + hum + "&mac_address=" + macAddress + "&batLevel=" + String(batLevel);
 
@@ -246,32 +282,36 @@ void sendDataToServer(String tem, String hum, uint8_t batLevel){
     WebSerial.println(httpResponseCode);
     WebSerial.println("I'm going into deep sleep mode");
     http.end();
-  }
 }
 
 void _init_(){
-  readFromRTCMemory();
-  writeToRTCMemory();
-  WiFi.mode(WIFI_AP_STA);              // Включение точки доступа и WiFi
-  AP_server_init();                   // Включение точки доступа и сервера
-  LittleFS_init("r");                // Cчитывает данные с памяти
-  // if (!sensor.begin()) while (true);
+  sta.sendCount=0;
+  fs_read();
+  Serial.println(sta.ssid);
+  Serial.println(sta.sendCount);
+  WiFi.mode(WIFI_AP_STA);                 // Включение точки доступа и WiFi
+  AP_server_init();                      // Включение точки доступа и сервера
+  //if (!sensor.begin()) while (true);
   clientSecure.setInsecure(); 
   WebSerial.begin(&server);            // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
-  if(rtcMem.count==0) delay(90*1000);
   WebSerial.println("Device is started to send data");
+  
 }
 
 void start(){
+  if(sta.sendCount>3) sta.sendCount=0;
   if(WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
   else{
-    String tem=String(sensor.readTemperature());
-    String hum=String(sensor.readHumidity());
-    uint8_t batLevel=map(ESP.getVcc(),2309,3336,0,100);
-    sendDataToGoogleSheets(tem,hum,batLevel);
-    sendDataToServer(tem,hum,batLevel);
-    sleep(TIME_TO_SLEEP);
+    BootMode();
+    if(sta.sendCount==0){
+      String tem=String(sensor.readTemperature());
+      String hum=String(sensor.readHumidity());
+      uint8_t batLevel=map(ESP.getVcc(),2309,3130,0,100);
+      sendDataToGoogleSheets(tem,hum,batLevel);
+      sendDataToServer(tem,hum,batLevel);
+    }
+    sleep();
   }
 }
 
