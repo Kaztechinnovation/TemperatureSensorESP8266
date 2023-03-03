@@ -4,51 +4,25 @@
 ADC_MODE (ADC_VCC); // считавает напряжение на питания в ацп
 
 /*-----------Точка доступа------------------*/ 
-String AP_SSID     = "ESP-";                    // SSID для точки доступа
-const char* AP_PASSWORD = "123456789";         // Пароль для точки доступа
+String AP_SSID     = "Kaz-";                    // SSID для точки доступа
 /*------------------------------------------*/
 
 String macAddress=WiFi.macAddress();      // мак адрес для отправки на сервер
-String wifi_networks;                 // список WiFi сети для вывода в сервер 
-uint16_t count_of_connection=0;      // количество неудачных подключений вай-фай     
-Sta sta;
-rtcStore rtcMem;
+uint16_t count_of_connection=0;      // количество неудачных подключений вай-фай
+String html_page;    
+Sta sta,sta2;
 Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для датчика
 AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
 WiFiClientSecure clientSecure;
 File file_ssid,file_password,file_server,file_send; // переменные для работы файлов в флеш памяти
-
-void readFromRTCMemory() {
-  system_rtc_mem_read(RTCMEMORYSTART, &rtcMem, sizeof(rtcMem));
-  Serial.print("\nread count = ");
-  Serial.println(rtcMem.count);
-  yield();
-}
-
-void writeToRTCMemory() {
-  if(rtcMem.count<0) rtcMem.count = rtcMem.count*(-1); 
-  if (rtcMem.count <= MAXHOUR) {
-    rtcMem.count++;
-  } else {
-    rtcMem.count = 0;
-  }
-
-  system_rtc_mem_write(RTCMEMORYSTART, &rtcMem, 4);
-
-  Serial.print("write count = ");
-  Serial.println(rtcMem.count);
-  yield();
-}
-
 // Ошибка 404
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
 }
-/*
-  Инициализация флеш памяти
-  считывает данные с памяти  
-*/
 
+/*Инициализация флеш памяти */
+
+/*считывает данные с памяти */ 
 void fs_read(){
   if (!LittleFS.begin()) {
     Serial.println("An Error has occurred while mounting LittleFS");
@@ -57,7 +31,6 @@ void fs_read(){
   file_ssid = LittleFS.open("/ssid.txt","r");
   file_password = LittleFS.open("/password.txt","r");
   file_server = LittleFS.open("/server.txt","r");
-  file_send = LittleFS.open("/send.txt","r");
   if(!file_ssid && !file_password && !file_server){
     Serial.println("Failed to open file for reading");
     return;
@@ -68,17 +41,15 @@ void fs_read(){
     sta.severname=file_server.readString();
     
   }
-  if(!file_send){
-     Serial.println("Failed to open file for reading");
-    return;
-  }
-  if(file_send.available()) sta.sendCount=file_send.readString().toInt();
+  sta2.ssid=sta.ssid;
+  sta2.password=sta.password;
+  sta2.severname=sta.severname;
   file_ssid.close();
   file_password.close();
   file_server.close();
-  file_send.close();
   LittleFS.end();
 }
+
 /*записавает данные в память .txt формате*/
 void fs_write(File file,String path,String data){
   if (!LittleFS.begin()) {
@@ -95,15 +66,28 @@ void fs_write(File file,String path,String data){
   file.close();
   LittleFS.end();
 }
+
+void fs_remove(){
+  if (!LittleFS.begin()) {
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+ 
+  LittleFS.remove("/ssid.txt");
+  LittleFS.remove("/password.txt");
+  LittleFS.remove("/server.txt");
+  sta.password.clear();
+  sta.ssid.clear();
+  sta.severname.clear();
+  LittleFS.end();
+}
 /*--------------------------*/
 
+
 void sleep(){
-  sta.sendCount++;
-  fs_write(file_send,"/send.txt",String(sta.sendCount));
   Serial.println("SLEEP!");
   ESP.deepSleep(TIME_TO_SLEEP, WAKE_RF_DISABLED);
 }
-
 
 
 /*Инициализация WiFi Сети*/
@@ -119,14 +103,11 @@ void wifi_init(){
       delay(1000); // каждый цикл задерка 1с
       time_to_connection++; // и добавляет 1с
       yield();
-      if(time_to_connection>=10){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
+      if(time_to_connection>=15){ time_to_connection=0; break;}// если время для подключение превысет 5000мс или подключиться к WIFI тогда выходит из цикла 
     }
     Serial.println(" ");
     if(WiFi.status()==WL_CONNECTED) { /*Если подключился к сети*/
       WebSerial.println("WiFi is succesfully connected to " + sta.ssid); /*выводит в Веб сериал монитор*/
-      fs_write(file_password,"/password.txt",sta.password); /*запись подключенной wifi сети в память*/
-      fs_write(file_ssid,"/ssid.txt",sta.ssid);
-      fs_write(file_server,"/server.txt",sta.severname);
     }
     else { /*В ином случае выводит в монитор что не подключился к сети*/
       WebSerial.println("WiFi was not connected to " + sta.ssid);
@@ -135,17 +116,25 @@ void wifi_init(){
   }
 
   else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED) {
-    DELAY;
-    sleep();
+    delay(90*1000);
+    if(sta.ssid==sta2.ssid && sta.password==sta2.password && sta.severname==sta2.severname) sleep();
+    else if (sta.ssid!=sta2.ssid || sta.password!=sta2.password || sta.severname!=sta2.severname)
+    {
+      count_of_connection=0;
+      sta2.password=sta.password;
+      sta2.severname=sta.severname;
+      sta2.ssid=sta.ssid;
+    }
   }
   
   
 }
 /*----------------------*/
+
 /*---------Сканирирование WiFi сети-----------*/
 void scan_wifi(){
-  uint8_t n = WiFi.scanNetworks(); // количество WiFi сети
-  wifi_networks.clear();
+  uint8_t n = WiFi.scanNetworks();          // количество WiFi сети
+  String wifi_networks="";                 // список WiFi сети для вывода в сервер 
   if (n == 0) Serial.println("no networks found"); // выводит в монитор что wifi сети отсутствуют  
   else {
     Serial.print(n);
@@ -156,12 +145,12 @@ void scan_wifi(){
       delay(10);
     }
   }
-  index_html+=wifi_networks + index_html_footer;   // веб страница
+  html_page=index_html + wifi_networks + index_html_footer;   // веб страница
 }
 /*---------------------------------------------*/
 
-/*Инициализация точка доступа и веб сервера*/
-void AP_server_init(){
+/*Инициализация точки доступа*/
+void AP_init(){
   for(uint8_t i=0;i<macAddress.length();i++) {
     if(macAddress.indexOf(':')==i) macAddress.remove(i,1);
   }
@@ -170,11 +159,17 @@ void AP_server_init(){
   Serial.println();
   Serial.print("IP Address: ");
   Serial.println(WiFi.softAPIP()); // выводит ip-address для веб сервера
+}
+
+
+/*Инициализация веб сервера*/
+void server_init(){
   scan_wifi();                     // Сканирование WiFi
-  
+
   /*Инициализация сервера*/
-  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ /*главная страница веб сервера*/
-    request->send(200, "text/html",index_html); // отправляет в сервер html code чтобы отобразить страницу
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ 
+    /*главная страница веб сервера*/
+    request->send(200, "text/html",html_page); // отправляет в сервер html code чтобы отобразить страницу
   });
   
   /*--------------Отправляет GET запрос в сервер----------------------*/ 
@@ -183,9 +178,22 @@ void AP_server_init(){
     /*получение данные с сервера*/
     sta.ssid=request->getParam("ssid")->value();          
     sta.password=request->getParam("password")->value();
-    sta.severname="http://"+request->getParam("server")->value()+"/config.php";
+    sta.severname="http://"+request->getParam("server")->value();
+    fs_write(file_password,"/password.txt",sta.password); /*запись подключенной wifi сети в память*/
+    fs_write(file_ssid,"/ssid.txt",sta.ssid);
+    fs_write(file_server,"/server.txt",sta.severname);
     /*-----------------------------------------------*/
     request->redirect("/webserial"); // перенаправление локальный WEB Serial monitor 
+  });
+
+  server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
+    scan_wifi();
+    request->redirect("/"); 
+  });
+
+  server.on("/r", HTTP_GET, [](AsyncWebServerRequest *request){
+    fs_remove();
+    request->send(200,"text/plain","All files removed"); 
   });
   server.onNotFound(notFound);
   server.begin();
@@ -194,7 +202,7 @@ void AP_server_init(){
 /*----------------------------------------*/
 
 /*----------Oтправкa данных в Google Sheets---------------------*/
-void sendDataToGoogleSheets(String tem, String hum, uint8_t batLevel) {
+void sendDataToGoogleSheets(String tem, String hum, uint batLevel) {
   const int httpsPort = 443;
   const char* host = "script.google.com";
   Serial.println("==========");
@@ -208,7 +216,7 @@ void sendDataToGoogleSheets(String tem, String hum, uint8_t batLevel) {
   }
  /*---------------------------------*/
   /*Ссылка на APP Script*/
-  String url = "/macros/s/" + GAS_ID + "/exec?temperature=" + tem + 
+  String url = "/macros/s/" + sheet[macAddress] + "/exec?temperature=" + tem + 
                 "&humidity=" + hum + "&mac_address=" + WiFi.macAddress() + "&bat_level=" + String(batLevel);
   /*-----------------------------*/
 
@@ -242,7 +250,7 @@ void BootMode(){
   HTTPClient http;
   String payload;
 
-  http.begin(client, sta.severname + "?mac_address=" + macAddress); 
+  http.begin(client, sta.severname + "/get.php?mac_address=" + macAddress); 
   int httpResponseCode = http.GET();
   if (httpResponseCode>0) {
     Serial.print("HTTP Response code: ");
@@ -254,17 +262,20 @@ void BootMode(){
     Serial.print("Error code: ");
     WebSerial.print("Error code: ");
   }
-  Serial.println(httpResponseCode);
-  WebSerial.println(httpResponseCode);
-  if(payload=="1")DELAY;
+  http.end();
+  if(payload=="1") {
+    WebSerial.println("IN BOOT");
+    Serial.println("IN BOOT");
+    delay(90e3);
+  }
 }
 
 void sendDataToServer(String tem, String hum, uint8_t batLevel){
     WiFiClient client;  
     HTTPClient http;
-    http.begin(client, sta.severname);
+    http.begin(client, sta.severname+"/post.php");
     http.addHeader("Content-Type", "application/x-www-form-urlencoded");
-    String httpRequestData = "&temperature=" + tem + "&humidity=" + hum + "&mac_address=" + macAddress + "&batLevel=" + String(batLevel);
+    String httpRequestData = "temperature=" + tem + "&humidity=" + hum + "&mac_address=" + macAddress + "&batLevel=" + String(batLevel);
 
     int httpResponseCode = http.POST(httpRequestData);
     /*--------------------------------------------------------------------------------------------------*/
@@ -280,37 +291,45 @@ void sendDataToServer(String tem, String hum, uint8_t batLevel){
     }
     /*----------------------------------------------------*/
     WebSerial.println(httpResponseCode);
+    Serial.println(httpResponseCode);
     WebSerial.println("I'm going into deep sleep mode");
+    Serial.println("I'm going into deep sleep mode");
     http.end();
 }
 
 void _init_(){
-  sta.sendCount=0;
   fs_read();
-  Serial.println(sta.ssid);
-  Serial.println(sta.sendCount);
   WiFi.mode(WIFI_AP_STA);                 // Включение точки доступа и WiFi
-  AP_server_init();                      // Включение точки доступа и сервера
-  //if (!sensor.begin()) while (true);
+  AP_init();
+  server_init();                      // Включение точки доступа и сервера
+  sensor.begin();
   clientSecure.setInsecure(); 
   WebSerial.begin(&server);            // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
   WebSerial.println("Device is started to send data");
-  
+  delay(1000);
+  macAddress.toLowerCase();
 }
 
 void start(){
-  if(sta.sendCount>3) sta.sendCount=0;
   if(WiFi.status()!=WL_CONNECTED) wifi_init(); // если Wifi не подключен будет инициализировать пока не подключется
   else{
     BootMode();
-    if(sta.sendCount==0){
-      String tem=String(sensor.readTemperature());
-      String hum=String(sensor.readHumidity());
-      uint8_t batLevel=map(ESP.getVcc(),2309,3130,0,100);
-      sendDataToGoogleSheets(tem,hum,batLevel);
-      sendDataToServer(tem,hum,batLevel);
+    float temp=0.0;
+    float humi=0.0;
+    for (int i=0;i<100;i++){
+      temp+=sensor.readTemperature();
+      delay(11);
     }
+    for (int i=0;i<100;i++){
+      humi+=sensor.readHumidity();
+      delay(12);
+    }
+    String tem=String(temp/100.0);
+    String hum=String(humi/100.0);
+    uint batLevel=map(ESP.getVcc(),2309,3130,0,100);
+    sendDataToGoogleSheets(tem,hum,batLevel);
+    sendDataToServer(tem,hum,batLevel);
     sleep();
   }
 }
@@ -319,6 +338,7 @@ void setup() {
   Serial.begin(115200);
   delay(1000);
   _init_();
+  Serial.println(sheet[macAddress]);
 }
 
 void loop() {

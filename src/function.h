@@ -11,15 +11,31 @@
 #include "Adafruit_Si7021.h"
 #include <SPI.h>
 #include <Wire.h>
+#include <map>
 extern "C" {
 #include "user_interface.h"
 }
 
 #define RTCMEMORYSTART 65
-#define MAXHOUR 1e5 
-#define TIME_TO_SLEEP 10e6
-#define DELAY delay(90*1000)
+#define HOUR 3600e6
+#define TIME_TO_SLEEP 3*HOUR
+#define SLEEP_TEST 20e6
 String GAS_ID = "AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g";
+std::map<String,String> sheet = {
+  {"48551912a0a3","AKfycbxTDlPaogg28u0REqVYvXFusqCaTjEsKevbXsfkZm4-WWmPvAWOYNhFVF36wUZKd1pw"},
+  {"485519120d71","AKfycbwZo9d-g2DYK-vJIVQ5cJ4afKKq9zxHyJuPhamR9QlFMO6RjOAERmROqzY5FVTP_nFP"},
+  {"485519124463","AKfycbzcdeJRcFNwq6Yx-LrKF5Fg1iJepiZ78R8WqWXey-ZzOhdKVA37APj8LTE3UZAryj9B"},
+  {"48551912a547","AKfycbyIvUCgrZGKAvrbLXH0t-yTEYRVmIvgl2xzGX73HFOaYYc6UzzvCLSRwl4Pf2IMsXhazw"},
+  {"485519123f62","AKfycbwyHlQapaK9DD6RQUPmksUlfFxGo3OW3BYp4MxF6gJOA_L6vtwbZdj_9xBB3z2IFAHgpg"},
+  {"48551912465d","AKfycbyvd-FEEWXtJSgZPAEGRvC-Bx83rrKdGJ_NAHzB8tsM9-UdyOGjbaJttPwoAdYPY3-GeQ"},
+  {"4855191286e7","AKfycbybW8pX-j7XU3-KfdH6MFkG77YoEAYK3-PD6vZxRS8l--5LeolgMMBlEC1rGDoutJoRhQ"},
+  {"4855191284cf","AKfycbzFpLAtXVKjvuLJLAEGQPD-dwkOmvZBXL9yFoHYCrUPDuwiZ-zB2OAIPzrOwiW5w2Ce7w"},
+  {"485519123f28","AKfycbz0i7HtnkYj1Hj92GbuJy5tLpY_99Gf3gcBZjlVwpRurMlsfMkhHHav2dZVsDjBmXEfFQ"},
+  {"e89f6d92b8e8","AKfycbz8-zvYSkishhBQlQZFBxTLNl_MVZM8xPycQFmlrRcSVkFX77n--wY_5DlGav9oA7rrmA"},
+  {"dc4f223b18f4","hello"}
+};
+
+
 
 typedef struct {
   int count;
@@ -29,7 +45,6 @@ typedef struct {
   String ssid;
   String password;
   String severname;
-  int sendCount;
 }Sta;
 
 /*HTML Страница веб сервера*/
