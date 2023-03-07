@@ -19,7 +19,7 @@ extern "C" {
 #define RTCMEMORYSTART 65
 #define HOUR 3600e6
 #define TIME_TO_SLEEP 3*HOUR
-#define SLEEP_TEST 20e6
+#define SLEEP_TEST 30e6
 String GAS_ID = "AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g";
 std::map<String,String> sheet = {
   {"48551912a0a3","AKfycbxTDlPaogg28u0REqVYvXFusqCaTjEsKevbXsfkZm4-WWmPvAWOYNhFVF36wUZKd1pw"},
@@ -32,7 +32,7 @@ std::map<String,String> sheet = {
   {"4855191284cf","AKfycbzFpLAtXVKjvuLJLAEGQPD-dwkOmvZBXL9yFoHYCrUPDuwiZ-zB2OAIPzrOwiW5w2Ce7w"},
   {"485519123f28","AKfycbz0i7HtnkYj1Hj92GbuJy5tLpY_99Gf3gcBZjlVwpRurMlsfMkhHHav2dZVsDjBmXEfFQ"},
   {"e89f6d92b8e8","AKfycbz8-zvYSkishhBQlQZFBxTLNl_MVZM8xPycQFmlrRcSVkFX77n--wY_5DlGav9oA7rrmA"},
-  {"dc4f223b18f4","hello"}
+  {"98cdac1d7c3a","AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g"}
 };
 
 

@@ -83,7 +83,6 @@ void fs_remove(){
 }
 /*--------------------------*/
 
-
 void sleep(){
   Serial.println("SLEEP!");
   ESP.deepSleep(TIME_TO_SLEEP, WAKE_RF_DISABLED);
@@ -92,7 +91,7 @@ void sleep(){
 
 /*Инициализация WiFi Сети*/
 void wifi_init(){
-  if(count_of_connection<3 && WiFi.status() != WL_CONNECTED){
+  if(count_of_connection<3){
     WiFi.begin(sta.ssid.c_str(), sta.password.c_str()); // c_str() метод преобразовает String to const char*
     WebSerial.println("Connecting to WIFI");
     Serial.println("Connecting to WIFI");
@@ -115,7 +114,7 @@ void wifi_init(){
     }
   }
 
-  else if (count_of_connection>=3 && WiFi.status() != WL_CONNECTED) {
+  else{
     delay(90*1000);
     if(sta.ssid==sta2.ssid && sta.password==sta2.password && sta.severname==sta2.severname) sleep();
     else if (sta.ssid!=sta2.ssid || sta.password!=sta2.password || sta.severname!=sta2.severname)
@@ -244,7 +243,6 @@ void sendDataToGoogleSheets(String tem, String hum, uint batLevel) {
 } 
 /*<------------------------------------------------------------------>*/
 
-
 void BootMode(){
   WiFiClient client;  
   HTTPClient http;
@@ -307,7 +305,6 @@ void _init_(){
   WebSerial.begin(&server);            // Подключение web serial monitor к серверу
   AsyncElegantOTA.begin(&server);     // Сервер для прошивки по воздуху
   WebSerial.println("Device is started to send data");
-  delay(1000);
   macAddress.toLowerCase();
 }
 
