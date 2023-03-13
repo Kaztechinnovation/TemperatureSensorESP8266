@@ -85,7 +85,7 @@ void fs_remove(){
 
 void sleep(){
   Serial.println("SLEEP!");
-  ESP.deepSleep(TIME_TO_SLEEP, WAKE_RF_DISABLED);
+  ESP.deepSleep(TIME_TO_SLEEP+(3*300e6));
 }
 
 
@@ -207,7 +207,6 @@ void sendDataToGoogleSheets(String tem, String hum, uint batLevel) {
   Serial.println("==========");
   Serial.print("connecting to ");
   Serial.println(host);
-  
   /*Подключение к хосту Google*/
   if (!clientSecure.connect(host, httpsPort)) {
     Serial.println("connection failed");

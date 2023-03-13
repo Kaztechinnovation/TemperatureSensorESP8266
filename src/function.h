@@ -16,8 +16,7 @@ extern "C" {
 #include "user_interface.h"
 }
 
-#define RTCMEMORYSTART 65
-#define HOUR 3600e6
+#define HOUR 3600000000
 #define TIME_TO_SLEEP 3*HOUR
 #define SLEEP_TEST 30e6
 String GAS_ID = "AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g";
@@ -36,10 +35,6 @@ std::map<String,String> sheet = {
 };
 
 
-
-typedef struct {
-  int count;
-}rtcStore;
 
 typedef struct {
   String ssid;
