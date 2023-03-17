@@ -15,6 +15,9 @@ Adafruit_Si7021 sensor = Adafruit_Si7021(); // готовый класс для 
 AsyncWebServer server(80); // Веб Сервер в микроконтроллере с портом 80
 WiFiClientSecure clientSecure;
 File file_ssid,file_password,file_server,file_send; // переменные для работы файлов в флеш памяти
+int countOfSsidFound=0;
+
+
 // Ошибка 404
 void notFound(AsyncWebServerRequest *request) {
   request->send(404, "text/plain", "Not found");
@@ -131,7 +134,7 @@ void wifi_init(){
 /*----------------------*/
 
 /*---------Сканирирование WiFi сети-----------*/
-void scan_wifi(){
+void ScanWiFi(){
   uint8_t n = WiFi.scanNetworks();          // количество WiFi сети
   String wifi_networks="";                 // список WiFi сети для вывода в сервер 
   if (n == 0) Serial.println("no networks found"); // выводит в монитор что wifi сети отсутствуют  
@@ -141,12 +144,13 @@ void scan_wifi(){
     for (int i = 0; i < n; ++i) { 
       /*Записавает в String html code список wifi сети*/
       wifi_networks += "<option value=\""+String(WiFi.SSID(i))+"\">"+String(WiFi.SSID(i))+"</option>";
-      delay(10);
     }
+    delay(10);
   }
   html_page=index_html + wifi_networks + index_html_footer;   // веб страница
 }
 /*---------------------------------------------*/
+
 
 /*Инициализация точки доступа*/
 void AP_init(){
@@ -163,7 +167,7 @@ void AP_init(){
 
 /*Инициализация веб сервера*/
 void server_init(){
-  scan_wifi();                     // Сканирование WiFi
+  ScanWiFi();                     // Сканирование WiFi
 
   /*Инициализация сервера*/
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){ 
@@ -175,6 +179,7 @@ void server_init(){
   server.on("/get", HTTP_GET, [] (AsyncWebServerRequest *request) { 
     if(WiFi.status()==WL_CONNECTED) WiFi.disconnect();
     /*получение данные с сервера*/
+    countOfSsidFound=0;
     sta.ssid=request->getParam("ssid")->value();          
     sta.password=request->getParam("password")->value();
     sta.severname="http://"+request->getParam("server")->value();
@@ -186,7 +191,7 @@ void server_init(){
   });
 
   server.on("/scan", HTTP_GET, [](AsyncWebServerRequest *request){
-    scan_wifi();
+    ScanWiFi();
     request->redirect("/"); 
   });
 
@@ -201,7 +206,7 @@ void server_init(){
 /*----------------------------------------*/
 
 /*----------Oтправкa данных в Google Sheets---------------------*/
-void sendDataToGoogleSheets(String tem, String hum, uint batLevel) {
+void sendDataToGoogleSheets(String tem, String hum, int batLevel) {
   const int httpsPort = 443;
   const char* host = "script.google.com";
   Serial.println("==========");
@@ -234,6 +239,7 @@ void sendDataToGoogleSheets(String tem, String hum, uint batLevel) {
       Serial.println("headers received");
       break;
     }
+    yield();
   }
   Serial.println("closing connection");
   Serial.println("==========");
@@ -267,7 +273,7 @@ void BootMode(){
   }
 }
 
-void sendDataToServer(String tem, String hum, uint8_t batLevel){
+void sendDataToServer(String tem, String hum, int batLevel){
     WiFiClient client;  
     HTTPClient http;
     http.begin(client, sta.severname+"/post.php");
@@ -316,28 +322,57 @@ void start(){
     for (int i=0;i<100;i++){
       temp+=sensor.readTemperature();
       delay(11);
+      yield();
     }
     for (int i=0;i<100;i++){
       humi+=sensor.readHumidity();
       delay(12);
+      yield();
     }
     String tem=String(temp/100.0);
     String hum=String(humi/100.0);
-    uint batLevel=map(ESP.getVcc(),2309,3130,0,100);
+    int batLevel=map(ESP.getVcc(),2309,3130,0,100);
     sendDataToGoogleSheets(tem,hum,batLevel);
     sendDataToServer(tem,hum,batLevel);
     sleep();
   }
 }
 
+void CheckWiFi(){
+  int n = WiFi.scanNetworks();          // количество WiFi сети
+  if(!sta.ssid.isEmpty()){
+    if(countOfSsidFound<10){
+      if (n > 0){
+        for (int i = 0; i < n; ++i) {
+          yield(); 
+          if(sta.ssid==WiFi.SSID(i)) start();
+        }
+      }
+      countOfSsidFound++;
+      delay(500);
+    }
+    else {sta.ssid.clear(); sta2.ssid.clear();}
+  }
+  else {
+    delay(80*1000);
+    if(sta.ssid==sta2.ssid) sleep();
+    else {
+      countOfSsidFound=0;
+      sta2.password=sta.password;
+      sta2.severname=sta.severname;
+      sta2.ssid=sta.ssid;
+    }
+  }
+  yield();
+}
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
   _init_();
-  Serial.println(sheet[macAddress]);
 }
 
 void loop() {
-  start();
+  CheckWiFi();
 }
 

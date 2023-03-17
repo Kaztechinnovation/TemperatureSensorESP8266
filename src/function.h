@@ -19,7 +19,6 @@ extern "C" {
 #define HOUR 3600000000
 #define TIME_TO_SLEEP 3*HOUR
 #define SLEEP_TEST 30e6
-String GAS_ID = "AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g";
 std::map<String,String> sheet = {
   {"48551912a0a3","AKfycbxTDlPaogg28u0REqVYvXFusqCaTjEsKevbXsfkZm4-WWmPvAWOYNhFVF36wUZKd1pw"},
   {"485519120d71","AKfycbwZo9d-g2DYK-vJIVQ5cJ4afKKq9zxHyJuPhamR9QlFMO6RjOAERmROqzY5FVTP_nFP"},
