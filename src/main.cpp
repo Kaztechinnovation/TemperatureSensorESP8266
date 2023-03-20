@@ -344,8 +344,8 @@ void CheckWiFi(){
     if(countOfSsidFound<10){
       if (n > 0){
         for (int i = 0; i < n; ++i) {
-          yield(); 
           if(sta.ssid==WiFi.SSID(i)) start();
+          yield(); 
         }
       }
       countOfSsidFound++;
