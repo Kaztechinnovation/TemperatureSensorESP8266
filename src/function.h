@@ -1,20 +1,30 @@
 #ifndef FUNCTION_H
 #define FUNCTION_H
 
-#include <ESP8266WiFi.h>
-#include <ESPAsyncTCP.h>
+#ifdef ESP8266
+  #include <ESP8266WiFi.h>
+  #include <ESP8266HTTPClient.h>
+  #include "LittleFS.h"
+  #include <ESPAsyncTCP.h>
+  ADC_MODE (ADC_VCC); // считавает напряжение на питания в ацп
+  extern "C" {
+    #include "user_interface.h"
+  }
+#else
+  #include "WiFi.h"
+  #include <HTTPClient.h>
+  #include "SPIFFS.h"
+  #include <AsyncTCP.h>
+  #include <WiFiClient.h>
+#endif
 #include <ESPAsyncWebServer.h>
-#include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 #include <WebSerial.h>
-#include "LittleFS.h"
 #include "Adafruit_Si7021.h"
 #include <SPI.h>
 #include <Wire.h>
 #include <map>
-extern "C" {
-#include "user_interface.h"
-}
+
 
 #define HOUR 3600000000
 #define TIME_TO_SLEEP 3*HOUR
@@ -30,7 +40,8 @@ std::map<String,String> sheet = {
   {"4855191284cf","AKfycbzFpLAtXVKjvuLJLAEGQPD-dwkOmvZBXL9yFoHYCrUPDuwiZ-zB2OAIPzrOwiW5w2Ce7w"},
   {"485519123f28","AKfycbz0i7HtnkYj1Hj92GbuJy5tLpY_99Gf3gcBZjlVwpRurMlsfMkhHHav2dZVsDjBmXEfFQ"},
   {"e89f6d92b8e8","AKfycbz8-zvYSkishhBQlQZFBxTLNl_MVZM8xPycQFmlrRcSVkFX77n--wY_5DlGav9oA7rrmA"},
-  {"98cdac1d7c3a","AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g"}
+  {"98cdac1d7c3a","AKfycbwiLFI4DcGVUuKL36uXKEPJEj7FaPITiQgycWYqSHLGw7LVxKOHBaURYu_V6YhA_V0g"},
+  {"246f28d1e870","AKfycbz6SpDABz2aFUmNM40BeftpQqtevqlhyDfWh5A-phx48lBMTs4VV94o4ffUJemJinOh"}
 };
 
 

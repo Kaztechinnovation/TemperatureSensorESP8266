@@ -6,6 +6,10 @@
         {
             "name": "TEST",
             "path": "../../../../Documents/PlatformIO/Projects/TEST"
+        },
+        {
+            "name": "sensor",
+            "path": "../../../../Documents/PlatformIO/Projects/sensor"
         }
     ],
     "settings": {

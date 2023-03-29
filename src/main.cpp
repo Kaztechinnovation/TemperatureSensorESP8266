@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <function.h>
 #include <AsyncElegantOTA.h>
-ADC_MODE (ADC_VCC); // считавает напряжение на питания в ацп
 
 /*-----------Точка доступа------------------*/ 
 String AP_SSID     = "Kaz-";                    // SSID для точки доступа
@@ -27,13 +26,23 @@ void notFound(AsyncWebServerRequest *request) {
 
 /*считывает данные с памяти */ 
 void fs_read(){
-  if (!LittleFS.begin()) {
-    Serial.println("An Error has occurred while mounting LittleFS");
-    return;
-  }
-  file_ssid = LittleFS.open("/ssid.txt","r");
-  file_password = LittleFS.open("/password.txt","r");
-  file_server = LittleFS.open("/server.txt","r");
+  #ifdef ESP8266
+    if (!LittleFS.begin()) {
+      Serial.println("An Error has occurred while mounting LittleFS");
+      return;
+    }
+    file_ssid = LittleFS.open("/ssid.txt","r");
+    file_password = LittleFS.open("/password.txt","r");
+    file_server = LittleFS.open("/server.txt","r");
+  #else
+    if (!SPIFFS.begin(true)) {
+      Serial.println("An Error has occurred while mounting LittleFS");
+      return;
+    }
+    file_ssid = SPIFFS.open("/ssid.txt","r");
+    file_password = SPIFFS.open("/password.txt","r");
+    file_server = SPIFFS.open("/server.txt","r");
+  #endif // DEBUG
   if(!file_ssid && !file_password && !file_server){
     Serial.println("Failed to open file for reading");
     return;
@@ -50,16 +59,29 @@ void fs_read(){
   file_ssid.close();
   file_password.close();
   file_server.close();
-  LittleFS.end();
+  #ifdef ESP8266
+    LittleFS.end();
+  #else
+    SPIFFS.end(); 
+  #endif
+  
 }
 
 /*записавает данные в память .txt формате*/
 void fs_write(File file,String path,String data){
-  if (!LittleFS.begin()) {
-    Serial.println("An Error has occurred while mounting LittleFS");
-    return;
-  }
-  file = LittleFS.open(path,"w");
+  #ifdef ESP8266
+    if (!LittleFS.begin()) {
+      Serial.println("An Error has occurred while mounting LittleFS");
+      return;
+    }
+    file = LittleFS.open(path,"w");
+  #else
+    if (!SPIFFS.begin(true)) {
+      Serial.println("An Error has occurred while mounting SPIFFS");
+      return;
+    }
+    file = SPIFFS.open(path,"w");
+  #endif 
   if (!file) {
     Serial.println("There was an error opening the file for writing");
     return;
@@ -67,28 +89,58 @@ void fs_write(File file,String path,String data){
   if(file.print(data)) Serial.println("File was written");
   else Serial.println("File write failed");
   file.close();
-  LittleFS.end();
+  #ifdef ESP8266
+    LittleFS.end();
+  #else
+    SPIFFS.end();
+  #endif
+  
 }
 
 void fs_remove(){
-  if (!LittleFS.begin()) {
-    Serial.println("An Error has occurred while mounting SPIFFS");
-    return;
-  }
+  #ifdef ESP8266
+    if (!LittleFS.begin()) {
+      Serial.println("An Error has occurred while mounting LittleFS");
+      return;
+    }
+  
+    LittleFS.remove("/ssid.txt");
+    LittleFS.remove("/password.txt");
+    LittleFS.remove("/server.txt");  
+  #else
+    if (!SPIFFS.begin(true)) {
+      Serial.println("An Error has occurred while mounting SPIFFS");
+      return;
+    }
  
-  LittleFS.remove("/ssid.txt");
-  LittleFS.remove("/password.txt");
-  LittleFS.remove("/server.txt");
+    SPIFFS.remove("/ssid.txt");
+    SPIFFS.remove("/password.txt");
+    SPIFFS.remove("/server.txt");
+  #endif
+  
   sta.password.clear();
   sta.ssid.clear();
   sta.severname.clear();
-  LittleFS.end();
+  
+  #ifdef ESP8266
+    LittleFS.end();
+  #else
+    SPIFFS.end();
+  #endif
+  
 }
 /*--------------------------*/
 
 void sleep(){
   Serial.println("SLEEP!");
-  ESP.deepSleep(TIME_TO_SLEEP+(3*300e6));
+  #ifdef ESP8266
+    ESP.deepSleep(TIME_TO_SLEEP+(3*300e6));
+  #else
+    esp_sleep_enable_timer_wakeup(TIME_TO_SLEEP+(3*300e6));
+    Serial.flush(); 
+    esp_deep_sleep_start();
+  #endif // DEBUG
+  
 }
 
 
@@ -120,8 +172,7 @@ void wifi_init(){
   else{
     delay(90*1000);
     if(sta.ssid==sta2.ssid && sta.password==sta2.password && sta.severname==sta2.severname) sleep();
-    else if (sta.ssid!=sta2.ssid || sta.password!=sta2.password || sta.severname!=sta2.severname)
-    {
+    else if (sta.ssid!=sta2.ssid || sta.password!=sta2.password || sta.severname!=sta2.severname){
       count_of_connection=0;
       sta2.password=sta.password;
       sta2.severname=sta.severname;
@@ -158,7 +209,7 @@ void AP_init(){
     if(macAddress.indexOf(':')==i) macAddress.remove(i,1);
   }
   AP_SSID+=macAddress;
-  WiFi.softAP(AP_SSID); // создание точка доступа
+  WiFi.softAP(AP_SSID.c_str()); // создание точка доступа
   Serial.println();
   Serial.print("IP Address: ");
   Serial.println(WiFi.softAPIP()); // выводит ip-address для веб сервера
@@ -329,9 +380,15 @@ void start(){
       delay(12);
       yield();
     }
-    String tem=String(temp/100.0);
-    String hum=String(humi/100.0);
-    int batLevel=map(ESP.getVcc(),2309,3130,0,100);
+    #ifdef ESP8266
+      String tem=String(temp/100.0);
+      String hum=String(humi/100.0);
+      int batLevel=map(ESP.getVcc(),2309,3130,0,100);
+    #else
+      String tem=String(22);
+      String hum=String(22);
+      int batLevel=70;
+    #endif // DEBUG
     sendDataToGoogleSheets(tem,hum,batLevel);
     sendDataToServer(tem,hum,batLevel);
     sleep();
@@ -340,7 +397,7 @@ void start(){
 
 void CheckWiFi(){
   int n = WiFi.scanNetworks();          // количество WiFi сети
-  if(!sta.ssid.isEmpty()){
+  if(!(sta.ssid.isEmpty())){
     if(countOfSsidFound<10){
       if (n > 0){
         for (int i = 0; i < n; ++i) {
@@ -354,7 +411,7 @@ void CheckWiFi(){
     else {sta.ssid.clear(); sta2.ssid.clear();}
   }
   else {
-    delay(80*1000);
+    delay(60*1000);
     if(sta.ssid==sta2.ssid) sleep();
     else {
       countOfSsidFound=0;
